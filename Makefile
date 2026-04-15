@@ -1,7 +1,10 @@
 CC = mpicc
 CFLAGS = -std=gnu2x -O3 -fopenmp -Wall
 
-all: progA progB progC progD rmm rmm_openmp_mpi
+all: prog0 progA progB progC progD rmm rmm_openmp_mpi
+
+prog0: prog0.c utility.h function.h
+	$(CC) $(CFLAGS) $< -o $@
 
 progA: progA.c utility.h function.h
 	$(CC) $(CFLAGS) $< -o $@
@@ -22,4 +25,4 @@ rmm_openmp_mpi: rmm_openmp_mpi.c utility.h
 	$(CC) $(CFLAGS) $< -o $@
 
 clean:
-	rm -f progA progB progC progD rmm rmm_openmp_mpi matC.csv model.csv
+	rm -f prog0 progA progB progC progD rmm rmm_openmp_mpi matC.csv model.csv

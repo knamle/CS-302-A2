@@ -54,7 +54,7 @@ int main(int argc, char *argv[]) {
         nrounds, size, totaltime
     );
 
-    write_csv(model, 1, size, "model.csv");
+    write_csv(&model, 1, size, "model.csv");
 
     free(model);
     return 0;

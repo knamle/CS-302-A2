@@ -1,1 +1,27 @@
+# macOS
 .DS_Store
+
+# Editor / IDE
+.vscode/
+
+# Compiled binaries (Makefile targets + debug/plain variants)
+prog0
+progA
+progB
+progC
+progD
+rmm
+rmm_openmp_mpi
+*_debug
+*_plain
+
+# macOS debug symbol bundles (created when compiling with -g)
+*.dSYM/
+
+# Object files
+*.o
+*.obj
+
+# Program output
+matC.csv
+model.csv

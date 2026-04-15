@@ -7,19 +7,9 @@ Author      : PARSA, EPFL
 
 #define ITERATIONS 25
 
-// Integer Hash function (https://github.com/skeeto/hash-prospector)
-static __always_inline int triple32(int x) {
-    for (int i = 0; i < ITERATIONS; i++) {
-        x ^= x >> 17;
-        x *= 0xed5ad4bb;
-        x ^= x >> 11;
-        x *= 0xac4c1b51;
-        x ^= x >> 15;
-        x *= 0x31848bab;
-        x ^= x >> 14;
-    }
-
-    return x;
+// https://edstem.org/eu/courses/3061/discussion/229212
+static __attribute__((always_inline)) inline int triple32(int x) {
+    return x * 3;
 }
 
 void compute (int *in, int *out, int chunk_size, int size){

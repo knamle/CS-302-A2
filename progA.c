@@ -24,7 +24,7 @@ int main(int argc, char *argv[]) {
     }
 
     /* Get the number of processes */
-    /* int nprocs = ??; */
+    int nprocs = ??;
 
     /* Initialise model */
     rand_gen generator = init_rand(0);
