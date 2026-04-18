@@ -21,6 +21,7 @@ rmm_openmp_mpi
 # Object files
 *.o
 *.obj
+*.out
 
 # Program output
 matC.csv
