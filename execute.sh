@@ -16,5 +16,6 @@ make || true
 # execute
 #srun ./progA 10 1000000
 srun ./progB 10 1000000 10 100
+srun ./progC 10 1000000 10 100
 
 echo FINISHED at `date`
