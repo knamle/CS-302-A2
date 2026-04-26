@@ -34,7 +34,6 @@ int main(int argc, char *argv[])
 
     /* Get the number of processes */
     int rank, nprocs;
-    MPI_Status status;
 
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
