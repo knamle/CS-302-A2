@@ -81,24 +81,23 @@ int main(int argc, char *argv[]) {
         int chunk = rank != (nprocs-1) ? chunk_size: last_chunk_size;
 
         int *localModel = malloc(chunk * sizeof(int));
-        int *localResult = NULL; 
+        int *localResult =  calloc(size, sizeof(int));
         for(int round = 0; round < nrounds; round++) {
             for (int i = 0; i < chunk; i += B1) {
                     int rec_size = (i + B1 <= chunk) ? B1 : (chunk - i);
                     MPI_Recv(&localModel[i], rec_size, MPI_INT, 0, TAG, MPI_COMM_WORLD, &status);
             }
 
-            localResult = calloc(size, sizeof(int));
-
             compute(localModel, localResult, chunk, size);
             
             for (int i = 0; i < size; i += B2) {
                 int send_size = (i + B2 <= size) ? B2 : (size - i);
                 MPI_Send(&localResult[i], send_size, MPI_INT, 0, TAG, MPI_COMM_WORLD);
+                localResult[i] = 0;
             }
 
-            free(localResult);
         }
+        free(localResult);
         free(localModel);
     }
     MPI_Finalize();

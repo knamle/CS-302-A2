@@ -34,7 +34,6 @@ int main(int argc, char *argv[])
 
     /* Get the number of processes */
     int rank, nprocs;
-    MPI_Status status;
 
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
@@ -58,7 +57,7 @@ int main(int argc, char *argv[])
         int total_isends_B1 = (nprocs - 2) * ((chunk_size + B1 - 1) / B1) // all procs except last
                               + (last_chunk_size + B1 - 1) / B1;          // + last proc
         MPI_Request *requests = malloc(total_isends_B1 * sizeof(MPI_Request));
-       
+
         // irecv
         int total_irecv_B2 = (nprocs - 1) * ((size + B2 - 1) / B2);
         MPI_Request *requests2 = malloc(total_irecv_B2 * sizeof(MPI_Request));
@@ -68,7 +67,7 @@ int main(int argc, char *argv[])
 
         for (int round = 0; round < nrounds; round++)
         {
-             int req_idx = 0;
+            int req_idx = 0;
 
             for (int proc = 1; proc < nprocs; proc++)
             {
@@ -119,11 +118,18 @@ int main(int argc, char *argv[])
         int chunk = rank != (nprocs - 1) ? chunk_size : last_chunk_size;
 
         int *localModel = malloc(chunk * sizeof(int));
-        int *localResult = NULL;
+        int *localResult = localResult = calloc(size, sizeof(int));
+
+        // irecv
+        int total_irecv_B1 = (chunk + B1 - 1) / B1;
+        MPI_Request *requests3 = malloc(total_irecv_B1 * sizeof(MPI_Request));
+
+        // isen
+        int total_isend_B2 = ((size + B2 - 1) / B2);
+        MPI_Request *requests4 = malloc(total_isend_B2 * sizeof(MPI_Request));
+
         for (int round = 0; round < nrounds; round++)
-        { // irecv
-            int total_irecv_B1 = (chunk + B1 - 1) / B1;
-            MPI_Request *requests3 = malloc(total_irecv_B1 * sizeof(MPI_Request));
+        { //
             int req_inx = 0;
 
             for (int i = 0; i < chunk; i += B1)
@@ -132,29 +138,23 @@ int main(int argc, char *argv[])
                 MPI_Irecv(&localModel[i], rec_size, MPI_INT, 0, TAG, MPI_COMM_WORLD, &requests3[req_inx++]);
             }
 
-            localResult = calloc(size, sizeof(int));
-
             MPI_Waitall(total_irecv_B1, requests3, MPI_STATUSES_IGNORE);
-            free(requests3);
 
             compute(localModel, localResult, chunk, size);
 
-            // isend
-            int total_isend_B2 = ((size + B2 - 1) / B2);
-            MPI_Request *requests4 = malloc(total_isend_B2 * sizeof(MPI_Request));
             req_inx = 0;
 
             for (int i = 0; i < size; i += B2)
             {
                 int send_size = (i + B2 <= size) ? B2 : (size - i);
                 MPI_Isend(&localResult[i], send_size, MPI_INT, 0, TAG, MPI_COMM_WORLD, &requests4[req_inx++]);
+                localResult[i] = 0;
             }
-
             MPI_Waitall(total_isend_B2, requests4, MPI_STATUSES_IGNORE);
-            free(requests4);
-
-            free(localResult);
         }
+        free(localResult);
+        free(requests3);
+        free(requests4);
         free(localModel);
     }
     MPI_Finalize();
