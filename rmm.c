@@ -30,7 +30,8 @@ int main(int argc, char *argv[])
     int N = atoi(argv[2]);
     int K = atoi(argv[3]);
     int *matA[M];
-    int *matB[N];    int *matC[M / 2];
+    int *matB[N];
+    int *matC[M / 2];
     int debug = atoi(argv[4]);
 
     int chunk = M / nprocs;
@@ -46,7 +47,7 @@ int main(int argc, char *argv[])
         /* Step 2: Generates and initializes matrices A and B with random values. */
         init_mat(matA, M, N, 0);
         init_mat(matB, N, K, 1);
-r       init_mat(matC, M / 2, K / 2, -1); // -1 indicates that matrix is initialized with 0s
+        init_mat(matC, M / 2, K / 2, -1); // -1 indicates that matrix is initialized with 0s
 
         if (debug)
         {
