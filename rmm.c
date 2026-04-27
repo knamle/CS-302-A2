@@ -128,14 +128,11 @@ int main(int argc, char *argv[])
         printf("- Using %d procs: matC computed in %.4gs.\n", nprocs, totaltime);
         write_csv(matC, M / 2, K / 2, "matC.csv");
 
-        /*free(matA);
-        free(matB);
-        free(matC);*/
+        free(matA_contiguous);
+        free(matC_contiguous);
     }
 
-    free(matA_contiguous);
     free(matB_contiguous);
-    free(matC_contiguous);
     free(local_matA);
     free(local_matC);
 
