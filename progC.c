@@ -54,15 +54,21 @@ int main(int argc, char *argv[])
         }
         free_rand(generator);
 
+        // isend
+        int total_isends_B1 = (nprocs - 2) * ((chunk_size + B1 - 1) / B1) // all procs except last
+                              + (last_chunk_size + B1 - 1) / B1;          // + last proc
+        MPI_Request *requests = malloc(total_isends_B1 * sizeof(MPI_Request));
+       
+        // irecv
+        int total_irecv_B2 = (nprocs - 1) * ((size + B2 - 1) / B2);
+        MPI_Request *requests2 = malloc(total_irecv_B2 * sizeof(MPI_Request));
+        int **recvBufs = malloc((nprocs - 1) * sizeof(int *));
+
         set_clock();
 
         for (int round = 0; round < nrounds; round++)
         {
-            // isend
-            int total_isends_B1 = (nprocs - 2) * ((chunk_size + B1 - 1) / B1) // all procs except last
-                                  + (last_chunk_size + B1 - 1) / B1;          // + last proc
-            MPI_Request *requests = malloc(total_isends_B1 * sizeof(MPI_Request));
-            int req_idx = 0;
+             int req_idx = 0;
 
             for (int proc = 1; proc < nprocs; proc++)
             {
@@ -76,13 +82,6 @@ int main(int argc, char *argv[])
                 }
             }
 
-            MPI_Waitall(total_isends_B1, requests, MPI_STATUSES_IGNORE);
-            free(requests);
-
-            // irecv
-            int total_irecv_B2 = (nprocs - 1) * ((size + B2 - 1) / B2);
-            MPI_Request *requests2 = malloc(total_irecv_B2 * sizeof(MPI_Request));
-            int **recvBufs = malloc((nprocs - 1) * sizeof(int *));
             req_idx = 0;
 
             for (int proc = 1; proc < nprocs; proc++)
@@ -95,8 +94,8 @@ int main(int argc, char *argv[])
                 }
             }
 
+            MPI_Waitall(total_isends_B1, requests, MPI_STATUSES_IGNORE);
             MPI_Waitall(total_irecv_B2, requests2, MPI_STATUSES_IGNORE);
-            free(requests2);
 
             for (int proc = 1; proc < nprocs; proc++)
             {
@@ -104,8 +103,12 @@ int main(int argc, char *argv[])
                     model[s] += recvBufs[proc - 1][s];
                 free(recvBufs[proc - 1]);
             }
-            free(recvBufs);
         }
+
+        free(recvBufs);
+        free(requests);
+        free(requests2);
+
         /* Output stats */
         double totaltime = elapsed_time();
         printf("- Using %d procs for %d iterations on %d size: %.3gs.\n", nprocs, nrounds, size, totaltime);
@@ -118,7 +121,7 @@ int main(int argc, char *argv[])
         int *localModel = malloc(chunk * sizeof(int));
         int *localResult = NULL;
         for (int round = 0; round < nrounds; round++)
-        {   // irecv
+        { // irecv
             int total_irecv_B1 = (chunk + B1 - 1) / B1;
             MPI_Request *requests3 = malloc(total_irecv_B1 * sizeof(MPI_Request));
             int req_inx = 0;
@@ -144,7 +147,7 @@ int main(int argc, char *argv[])
             for (int i = 0; i < size; i += B2)
             {
                 int send_size = (i + B2 <= size) ? B2 : (size - i);
-                MPI_Isend(&localResult[i], send_size, MPI_INT, 0, TAG, MPI_COMM_WORLD, &requests4[req_inx++] );
+                MPI_Isend(&localResult[i], send_size, MPI_INT, 0, TAG, MPI_COMM_WORLD, &requests4[req_inx++]);
             }
 
             MPI_Waitall(total_isend_B2, requests4, MPI_STATUSES_IGNORE);
