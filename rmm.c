@@ -11,6 +11,20 @@ SCIPER		: , 379672
 #include "utility.h"
 #include <mpi.h>
 
+static void pack(int **matrix, int *buf, int rows, int cols)
+{
+    for (int i = 0; i < rows; i++)
+        for (int j = 0; j < cols; j++)
+            buf[i * cols + j] = matrix[i][j];
+}
+
+static void unpack(int *buf, int **matrix, int rows, int cols)
+{
+    for (int i = 0; i < rows; i++)
+        for (int j = 0; j < cols; j++)
+            matrix[i][j] = buf[i * cols + j];
+}
+
 int main(int argc, char *argv[])
 {
     if (argc != 5)
@@ -56,11 +70,19 @@ int main(int argc, char *argv[])
         }
     }
 
+    int *matA_contiguous = malloc(M * N * sizeof(int));
+    int *matB_contiguous = malloc(N * K * sizeof(int));
+    int *matC_contiguous = malloc((M / 2) * (K / 2) * sizeof(int));
     int *local_matA = malloc(chunk * N * sizeof(int));
+    int *local_matC = malloc((chunk / 2) * (k / 2) * sizeof(int));
 
+    pack(matA, matA_contiguous, M, N);
+    pack(matB, matB_contiguous, N, K);
     // only every ith row is contiguous with the way we initialised our matrix
-    MPI_Scatter(matA, chunk, MPI_INT, local_matA, chunk, MPI_INT, 0, MPI_COMM_WORLD);
-    MPI_Bcast(matB, N * K, MPI_INT, 0, MPI_COMM_WORLD);
+
+    MPI_Scatter(matA_contiguous, chunk * N, MPI_INT, local_matA, chunk * N,
+                MPI_INT, 0, MPI_COMM_WORLD);
+    MPI_Bcast(matB_contiguous, N * K, MPI_INT, 0, MPI_COMM_WORLD);
 
     printf("Starting Computation...\n");
     if (rank == 0)
@@ -68,7 +90,6 @@ int main(int argc, char *argv[])
 
     /* Step 3: Computes the matrix C as the RMM of matrices A and B. */
     /* Parallelize and optimize this part only! */
-    int *local_matC = malloc((chunk / 2) * (k / 2) * sizeof(int));
 
     for (int idx = 0; idx < (chunk / 2); idx++)
     {
@@ -81,15 +102,17 @@ int main(int argc, char *argv[])
                 {
                     for (int kdx = 0; kdx < N; kdx++)
                     {
-                        local_matC[idx * (k / 2) + jdx] += local_matA[(idx * 2 + aoff) * N + kdx] * matB[kdx][jdx * 2 + boff];
+                        local_matC[idx * (k / 2) + jdx] += local_matA[(idx * 2 + aoff) * N + kdx] * matB[kdx * K + (jdx * 2 + boff)];
                     }
                 }
             }
         }
     }
 
-    MPI_Gather(local_matC, chunk, MPI_INT, matC, (chunk / 2) * (K / 2), MPI_INT, 0, MPI_COMM_WORLD);
+    MPI_Gather(local_matC, (chunk / 2) * (k / 2), MPI_INT, matC_contiguous, (chunk / 2) * (K / 2), MPI_INT, 0, MPI_COMM_WORLD);
     double totaltime = elapsed_time();
+
+    unpack(matC, matC_contiguous, (M / 2), (K / 2));
 
     /* Step 4: Write matrix C into a csv file matC.csv and exit. */
     if (rank == 0)
@@ -105,6 +128,9 @@ int main(int argc, char *argv[])
         free(matC);*/
     }
 
+    free(matA_contiguous);
+    free(matB_contiguous);
+    free(matC_contiguous);
     free(local_matA);
     free(local_matC);
 
