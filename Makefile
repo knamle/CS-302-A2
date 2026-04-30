@@ -1,5 +1,5 @@
 CC = mpicc
-CFLAGS = -std=gnu2x -O3 -Wall
+CFLAGS = -std=gnu2x -O3 -fopenmp -Wall
 
 all: prog0 progA progB progC progD rmm rmm_openmp_mpi
 
