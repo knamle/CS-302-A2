@@ -1,0 +1,9 @@
+mpiexec -np 8 ./rmm 1024 1024 1024 0 blocking scatter bcast gather
+Starting Computation...
+Computation Done!
+- Using 8 procs: matC computed in 0.5213s.
+
+mpiexec -np 8 ./rmm 1024 1024 1024 0
+Starting Computation...
+Computation Done!
+- Using 8 procs: matC computed in 0.4274s. nonblocking scatter bcast gather
