@@ -1,7 +1,7 @@
 CC = mpicc
-CFLAGS = -std=gnu2x -O3 -fopenmp -Wall
+CFLAGS = -std=gnu2x -O3 -Wall
 
-all: prog0 progA progB progC progD rmm rmm_openmp_mpi
+all: prog0 progA progB progC rmm 
 
 prog0: prog0.c utility.h function.h
 	$(CC) $(CFLAGS) $< -o $@

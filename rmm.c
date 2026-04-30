@@ -83,16 +83,16 @@ int main(int argc, char *argv[])
     }
     // only every ith row is contiguous with the way we initialised our matrix
 
-    MPI_Scatter(matA_contiguous, chunk * N, MPI_INT, local_matA, chunk * N,
-                MPI_INT, 0, MPI_COMM_WORLD);
-    MPI_Bcast(matB_contiguous, N * K, MPI_INT, 0, MPI_COMM_WORLD);
-
+    
     if (rank == 0)
     {
         printf("Starting Computation...\n");
         set_clock();
     }
-
+    MPI_Scatter(matA_contiguous, chunk * N, MPI_INT, local_matA, chunk * N,
+                MPI_INT, 0, MPI_COMM_WORLD);
+    MPI_Bcast(matB_contiguous, N * K, MPI_INT, 0, MPI_COMM_WORLD);
+    
     /* Step 3: Computes the matrix C as the RMM of matrices A and B. */
     /* Parallelize and optimize this part only! */
 
