@@ -26,3 +26,5 @@ rmm_openmp_mpi
 # Program output
 matC.csv
 model.csv
+
+notes.txt
