@@ -38,6 +38,7 @@ int main(int argc, char *argv[])
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Request reqs[3];
 
     /* Step 1: Read the values of M, N and K from the command line arguments. */
     int M = atoi(argv[1]);
@@ -47,7 +48,7 @@ int main(int argc, char *argv[])
     int *matB[N];
     int *matC[M / 2];
     int debug = atoi(argv[4]);
-    
+
     int chunk = M / nprocs;
 
     int *matA_contiguous = NULL;
@@ -55,7 +56,6 @@ int main(int argc, char *argv[])
     int *matC_contiguous = NULL;
     int *local_matA = malloc(chunk * N * sizeof(int));
     int *local_matC = malloc((chunk / 2) * (K / 2) * sizeof(int));
-
 
     if (M % 2 != 0 || N % 2 != 0 || K % 2 != 0)
     {
@@ -83,16 +83,16 @@ int main(int argc, char *argv[])
     }
     // only every ith row is contiguous with the way we initialised our matrix
 
-    
     if (rank == 0)
     {
         printf("Starting Computation...\n");
         set_clock();
     }
-    MPI_Scatter(matA_contiguous, chunk * N, MPI_INT, local_matA, chunk * N,
-                MPI_INT, 0, MPI_COMM_WORLD);
-    MPI_Bcast(matB_contiguous, N * K, MPI_INT, 0, MPI_COMM_WORLD);
-    
+    MPI_Iscatter(matA_contiguous, chunk * N, MPI_INT, local_matA, chunk * N,
+                 MPI_INT, 0, MPI_COMM_WORLD, &reqs[0]);
+    MPI_Ibcast(matB_contiguous, N * K, MPI_INT, 0, MPI_COMM_WORLD, &reqs[1]);
+    MPI_Waitall(2, reqs, MPI_STATUSES_IGNORE);
+
     /* Step 3: Computes the matrix C as the RMM of matrices A and B. */
     /* Parallelize and optimize this part only! */
 
@@ -114,8 +114,9 @@ int main(int argc, char *argv[])
         }
     }
 
-    MPI_Gather(local_matC, (chunk / 2) * (K / 2), MPI_INT, matC_contiguous, (chunk / 2) * (K / 2), MPI_INT, 0, MPI_COMM_WORLD);
-
+    MPI_Igather(local_matC, (chunk / 2) * (K / 2), MPI_INT, matC_contiguous, (chunk / 2) * (K / 2), MPI_INT, 0, MPI_COMM_WORLD, &reqs[2]);
+    MPI_Wait(&reqs[2], MPI_STATUS_IGNORE);
+   
     /* Step 4: Write matrix C into a csv file matC.csv and exit. */
     if (rank == 0)
     {

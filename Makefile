@@ -21,9 +21,6 @@ progD: progD.c utility.h function.h
 rmm: rmm.c utility.h
 	$(CC) $(CFLAGS) $< -o $@
 
-rmm: rmm.c utility.h
-	$(CC) $(CFLAGS) $< -o $@
-
 rmm_openmp_mpi: rmm_openmp_mpi.c utility.h
 	$(CC) $(CFLAGS) $< -o $@
 
