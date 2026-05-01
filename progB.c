@@ -94,7 +94,6 @@ int main(int argc, char *argv[]) {
             for (int i = 0; i < size; i += B2) {
                 int send_size = (i + B2 <= size) ? B2 : (size - i);
                 MPI_Send(&localResult[i], send_size, MPI_INT, 0, TAG, MPI_COMM_WORLD);
-                localResult[i] = 0;
             }
 
             free(localResult);
