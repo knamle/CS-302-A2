@@ -1,5 +1,5 @@
 CC = mpicc
-CFLAGS = -std=gnu2x -O3 -Wall
+CFLAGS = -std=gnu99 -O3 -Wall --sysroot=$(shell xcrun --show-sdk-path)
 
 all: prog0 progA progB progC rmm 
 
