@@ -2,15 +2,15 @@
 ============================================================================
 Filename    : rmm.c
 Author      : Nathan Duchosal, Nam Le
-SCIPER      : , 379672
+SCIPER      : 356203, 379672
 ============================================================================
 */
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include "utility.h"
 #include <mpi.h>
+#include <omp.h>
 
 static void pack(int **matrix, int *buf, int rows, int cols)
 {
@@ -42,6 +42,7 @@ static void compute_tile(const int *local_matA, const int *B_tile,
     int half_tile = tile_w / 2;
     int half_K = K / 2;
 
+    #pragma omp parallel for
     for (int idx = 0; idx < chunk / 2; idx++)
     {
         for (int jdx = 0; jdx < half_tile; jdx++)
@@ -59,14 +60,15 @@ static void compute_tile(const int *local_matA, const int *B_tile,
 
 int main(int argc, char *argv[])
 {
-    if (argc != 5)
+    if (argc != 6)
     {
-        printf("Usage: %s <M> <N> <K> <0|1>\n", argv[0]);
+        printf("Usage: %s <M> <N> <K> <0|1> <num_thread>\n", argv[0]);
         return 1;
     }
 
     int rank, nprocs;
-    MPI_Init(&argc, &argv);
+    int provided;
+    MPI_Init_thread(&argc, &argv, MPI_THREAD_FUNNELED, &provided);
     MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
@@ -74,6 +76,8 @@ int main(int argc, char *argv[])
     int N = atoi(argv[2]);
     int K = atoi(argv[3]);
     int debug = atoi(argv[4]);
+    int num_thread = atoi(argv[5]);
+    omp_set_num_threads(num_thread);
     int T = 64; // number of columns that matB will have workers work on
 
     int *matA[M];
@@ -145,15 +149,16 @@ int main(int argc, char *argv[])
         }
 
         // sends chunks of B to workers
-        int *tile_pack_buf = malloc(tile_size * sizeof(int));
+        int *tile_bufs[T];
         MPI_Request *b_send_reqs = malloc((nprocs - 1) * T * sizeof(MPI_Request));
 
         for (int t = 0; t < T; t++)
         {
-            pack_B_tile(matB_flat, tile_pack_buf, N, K, t * tile_w, tile_w);
+            tile_bufs[t] = malloc(tile_size * sizeof(int));
+            pack_B_tile(matB_flat, tile_bufs[t], N, K, t * tile_w, tile_w);
             for (int r = 1; r < nprocs; r++)
             {
-                MPI_Isend(tile_pack_buf, tile_size, MPI_INT,
+                MPI_Isend(tile_bufs[t], tile_size, MPI_INT,
                           r, 10 + t, MPI_COMM_WORLD,
                           &b_send_reqs[t * (nprocs - 1) + (r - 1)]);
             }
@@ -170,6 +175,8 @@ int main(int argc, char *argv[])
                          t * tile_w, tile_w);
         }
 
+        MPI_Waitall((nprocs - 1) * T, b_send_reqs, MPI_STATUSES_IGNORE);
+        MPI_Waitall(nprocs - 1, a_send_reqs, MPI_STATUSES_IGNORE);
         MPI_Waitall(nprocs - 1, c_recv_reqs, MPI_STATUSES_IGNORE);
 
         double totaltime = elapsed_time();
@@ -179,8 +186,8 @@ int main(int argc, char *argv[])
         printf("Computation Done!\n");
         if (debug)
             display_matrix(matC, M / 2, K / 2, "C");
-        printf("- Using %d procs, %d tiles: matC computed in %.4gs.\n",
-               nprocs, T, totaltime);
+        printf("- Using %d procs: matC computed in %.4gs.\n",
+               nprocs, totaltime);
         write_csv(matC, M / 2, K / 2, "matC.csv");
 
         free(matA_flat);
@@ -189,7 +196,10 @@ int main(int argc, char *argv[])
         free(a_send_reqs);
         free(b_send_reqs);
         free(c_recv_reqs);
-        free(tile_pack_buf);
+        for (int t = 0; t < T; t++)
+        {
+            free(tile_bufs[t]);
+        }
     }
     /* ------------------------------------------------------------------ */
     /* WORKERS: receive A once, then pipeline B tiles                      */

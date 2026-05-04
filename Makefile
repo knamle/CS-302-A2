@@ -24,7 +24,7 @@ rmm: rmm.c utility.h
 	$(CC) $(CFLAGS) $< -o $@
 
 rmm_openmp_mpi: rmm_openmp_mpi.c utility.h
-	$(CC) $(CFLAGS) $< -o $@
+	$(CC) $(CFLAGS) -fopenmp $< -o $@
 
 clean:
 	rm -f prog0 progA progB progC progD rmm rmm_openmp_mpi matC.csv model.csv
