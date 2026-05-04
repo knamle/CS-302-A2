@@ -145,16 +145,15 @@ int main(int argc, char *argv[])
         }
 
         // sends chunks of B to workers
-        int *tile_bufs[T];
+        int *tile_pack_buf = malloc(tile_size * sizeof(int));
         MPI_Request *b_send_reqs = malloc((nprocs - 1) * T * sizeof(MPI_Request));
 
         for (int t = 0; t < T; t++)
         {
-            tile_bufs[t] = malloc(tile_size * sizeof(int));
-            pack_B_tile(matB_flat, tile_bufs[t], N, K, t * tile_w, tile_w);
+            pack_B_tile(matB_flat, tile_pack_buf, N, K, t * tile_w, tile_w);
             for (int r = 1; r < nprocs; r++)
             {
-                MPI_Isend(tile_bufs[t], tile_size, MPI_INT,
+                MPI_Isend(tile_pack_buf, tile_size, MPI_INT,
                           r, 10 + t, MPI_COMM_WORLD,
                           &b_send_reqs[t * (nprocs - 1) + (r - 1)]);
             }
@@ -171,8 +170,6 @@ int main(int argc, char *argv[])
                          t * tile_w, tile_w);
         }
 
-        MPI_Waitall((nprocs - 1) * T, b_send_reqs, MPI_STATUSES_IGNORE);
-        MPI_Waitall(nprocs - 1, a_send_reqs, MPI_STATUSES_IGNORE);
         MPI_Waitall(nprocs - 1, c_recv_reqs, MPI_STATUSES_IGNORE);
 
         double totaltime = elapsed_time();
@@ -182,8 +179,8 @@ int main(int argc, char *argv[])
         printf("Computation Done!\n");
         if (debug)
             display_matrix(matC, M / 2, K / 2, "C");
-        printf("- Using %d procs: matC computed in %.4gs.\n",
-               nprocs, totaltime);
+        printf("- Using %d procs, %d tiles: matC computed in %.4gs.\n",
+               nprocs, T, totaltime);
         write_csv(matC, M / 2, K / 2, "matC.csv");
 
         free(matA_flat);
@@ -192,10 +189,7 @@ int main(int argc, char *argv[])
         free(a_send_reqs);
         free(b_send_reqs);
         free(c_recv_reqs);
-        for (int t = 0; t < T; t++)
-        {
-            free(tile_bufs[t]);
-        }
+        free(tile_pack_buf);
     }
     /* ------------------------------------------------------------------ */
     /* WORKERS: receive A once, then pipeline B tiles                      */

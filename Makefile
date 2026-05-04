@@ -1,7 +1,9 @@
 CC = mpicc
-CFLAGS = -std=gnu2x -O3 -Wall
+CFLAGS = -std=gnu99 -O3 -Wall
 
-all: prog0 progA progB progC rmm 
+all: prog0 progA progB progC progD rmm 
+
+partA: progA progB progC progD
 
 prog0: prog0.c utility.h function.h
 	$(CC) $(CFLAGS) $< -o $@
