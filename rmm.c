@@ -2,13 +2,12 @@
 ============================================================================
 Filename    : rmm.c
 Author      : Nathan Duchosal, Nam Le
-SCIPER      : , 379672
+SCIPER      : 356203, 379672
 ============================================================================
 */
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include "utility.h"
 #include <mpi.h>
 

@@ -2,13 +2,12 @@
 ============================================================================
 Filename    : progD.c
 Author      : Nathan Duchosal, Nam Le
-SCIPER		: , 379672
+SCIPER		: 356203, 379672
 ============================================================================
 */
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include "function.h"
 #include "utility.h"
 #include <mpi.h>
@@ -73,9 +72,11 @@ int main(int argc, char *argv[])
         {
             MPI_Scatterv(model, sendcounts, displs, MPI_INT, NULL, 0, MPI_INT, 0, MPI_COMM_WORLD);
 
-            memcpy(nextModel, model, size * sizeof(int));
+            for (int i = 0; i < size; i++)
+                nextModel[i] = model[i];
 
-            memset(reduceResult, 0, size * sizeof(int));
+            for (int i = 0; i < size; i++)
+                reduceResult[i] = 0;
             MPI_Reduce(MPI_IN_PLACE, reduceResult, size, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
 
             for (int i = 0; i < size; i++)
@@ -107,7 +108,8 @@ int main(int argc, char *argv[])
         {
             MPI_Scatterv(NULL, NULL, NULL, MPI_INT, localModel, chunk, MPI_INT, 0, MPI_COMM_WORLD);
 
-            memset(localResult, 0, size * sizeof(int));
+            for (int i = 0; i < size; i++)
+                localResult[i] = 0;
 
             compute(localModel, localResult, chunk, size);
 
