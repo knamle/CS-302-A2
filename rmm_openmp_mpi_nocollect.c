@@ -99,8 +99,13 @@ int main(int argc, char *argv[])
 
     int *local_matA = malloc(chunk * N * sizeof(int));
     int *local_matC = calloc(chunk_c_size, sizeof(int));
-    int *B_tile_buf = malloc(tile_size * sizeof(int));
+    int *B_buf[2];
+    B_buf[0] = malloc(tile_size * sizeof(int));
+    B_buf[1] = malloc(tile_size * sizeof(int));
 
+    /* ------------------------------------------------------------------ */
+    /* RANK 0 setup                                                        */
+    /* ------------------------------------------------------------------ */
     int *matA_flat = NULL;
     int *matB_flat = NULL;
     int *matC_flat = NULL;
@@ -123,33 +128,63 @@ int main(int argc, char *argv[])
             display_matrix(matA, M, N, "A");
             display_matrix(matB, N, K, "B");
         }
-    }
 
-    set_clock();
+        printf("Starting Computation...\n");
+        set_clock();
 
-    MPI_Scatter(matA_flat, chunk * N, MPI_INT,
-                local_matA, chunk * N, MPI_INT, 0, MPI_COMM_WORLD);
+        // recv back from all workers
+        MPI_Request *c_recv_reqs = malloc((nprocs - 1) * sizeof(MPI_Request));
+        for (int r = 1; r < nprocs; r++)
+        {
+            int offset = (r * chunk / 2) * (K / 2);
+            MPI_Irecv(matC_flat + offset, chunk_c_size, MPI_INT,
+                      r, 2, MPI_COMM_WORLD, &c_recv_reqs[r - 1]);
+        }
 
-    for (int t = 0; t < T; t++)
-    {
-        if (rank == 0)
-            pack_B_tile(matB_flat, B_tile_buf, N, K, t * tile_w, tile_w);
+        // send chunks of A to workers
+        MPI_Request *a_send_reqs = malloc((nprocs - 1) * sizeof(MPI_Request));
+        for (int r = 1; r < nprocs; r++)
+        {
+            MPI_Isend(matA_flat + r * chunk * N, chunk * N, MPI_INT,
+                      r, 0, MPI_COMM_WORLD, &a_send_reqs[r - 1]);
+        }
 
-        MPI_Bcast(B_tile_buf, tile_size, MPI_INT, 0, MPI_COMM_WORLD);
+        // sends chunks of B to workers
+        int *tile_bufs[T];
+        MPI_Request *b_send_reqs = malloc((nprocs - 1) * T * sizeof(MPI_Request));
 
-        compute_tile(local_matA, B_tile_buf, local_matC,
-                     chunk, N, K, t * tile_w, tile_w);
-    }
+        for (int t = 0; t < T; t++)
+        {
+            tile_bufs[t] = malloc(tile_size * sizeof(int));
+            pack_B_tile(matB_flat, tile_bufs[t], N, K, t * tile_w, tile_w);
+            for (int r = 1; r < nprocs; r++)
+            {
+                MPI_Isend(tile_bufs[t], tile_size, MPI_INT,
+                          r, 10 + t, MPI_COMM_WORLD,
+                          &b_send_reqs[t * (nprocs - 1) + (r - 1)]);
+            }
+        }
 
-    MPI_Gather(local_matC, chunk_c_size, MPI_INT,
-               matC_flat, chunk_c_size, MPI_INT, 0, MPI_COMM_WORLD);
+        // rank0 computes its own chunk
+        for (int t = 0; t < T; t++)
+        {
+            pack_B_tile(matB_flat, B_buf[0], N, K, t * tile_w, tile_w);
+            compute_tile(matA_flat,
+                         B_buf[0],
+                         matC_flat,
+                         chunk, N, K,
+                         t * tile_w, tile_w);
+        }
 
-    if (rank == 0)
-    {
+        MPI_Waitall((nprocs - 1) * T, b_send_reqs, MPI_STATUSES_IGNORE);
+        MPI_Waitall(nprocs - 1, a_send_reqs, MPI_STATUSES_IGNORE);
+        MPI_Waitall(nprocs - 1, c_recv_reqs, MPI_STATUSES_IGNORE);
+
         double totaltime = elapsed_time();
 
         unpack(matC_flat, matC, M / 2, K / 2);
 
+        printf("Computation Done!\n");
         if (debug)
             display_matrix(matC, M / 2, K / 2, "C");
         printf("- Using %d procs: matC computed in %.4gs.\n",
@@ -159,11 +194,58 @@ int main(int argc, char *argv[])
         free(matA_flat);
         free(matB_flat);
         free(matC_flat);
+        free(a_send_reqs);
+        free(b_send_reqs);
+        free(c_recv_reqs);
+        for (int t = 0; t < T; t++)
+        {
+            free(tile_bufs[t]);
+        }
+    }
+    /* ------------------------------------------------------------------ */
+    /* WORKERS: receive A once, then pipeline B tiles                      */
+    /* ------------------------------------------------------------------ */
+    else
+    {
+        // Receive A's chunk
+        MPI_Recv(local_matA, chunk * N, MPI_INT, 0, 0,
+                 MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+
+        // t0 = recv B0
+        // t1 = recv B1 and compute B0 etc..
+        int cur = 0;
+        MPI_Request b_req = MPI_REQUEST_NULL;
+
+        MPI_Irecv(B_buf[cur], tile_size, MPI_INT, 0, 10,
+                  MPI_COMM_WORLD, &b_req);
+
+        for (int t = 0; t < T; t++)
+        {
+            int next = cur ^ 1;
+
+            // post next recv
+            MPI_Request next_req = MPI_REQUEST_NULL;
+            if (t + 1 < T)
+                MPI_Irecv(B_buf[next], tile_size, MPI_INT, 0, 10 + t + 1,
+                          MPI_COMM_WORLD, &next_req);
+
+            // wait for last receive
+            MPI_Wait(&b_req, MPI_STATUS_IGNORE);
+
+            // compute last received data
+            compute_tile(local_matA, B_buf[cur], local_matC,
+                         chunk, N, K, t * tile_w, tile_w);
+
+            b_req = next_req;
+            cur = next;
+        }
+        MPI_Send(local_matC, chunk_c_size, MPI_INT, 0, 2, MPI_COMM_WORLD);
     }
 
     free(local_matA);
     free(local_matC);
-    free(B_tile_buf);
+    free(B_buf[0]);
+    free(B_buf[1]);
 
     MPI_Finalize();
     return 0;

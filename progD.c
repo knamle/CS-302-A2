@@ -49,8 +49,6 @@ int main(int argc, char *argv[])
         displs[i] = (i - 1) * chunk_size;
     }
 
-    int chunk = (rank == 0) ? 0 : sendcounts[rank];
-
     if (rank == 0)
     {
         rand_gen generator = init_rand(0);
@@ -101,6 +99,7 @@ int main(int argc, char *argv[])
     }
     else
     {
+        int chunk = sendcounts[rank];
         int *localModel = malloc(chunk * sizeof(int));
         int *localResult = malloc(size * sizeof(int));
 

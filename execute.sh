@@ -16,23 +16,23 @@ make partA || true
 
 # Q1: find optimal B1 and B2 (32 procs, size=1M, 10 iterations)
 echo "=== Q1: B1/B2 grid search for progB ==="
-for B1 in 256 512 1024 2048 4096 8192 16384; do
-    for B2 in 256 512 1024 2048 4096 8192 16384; do
+for B1 in 64 128 256 512 1024 2048 4096 8192 16384; do
+    for B2 in 64 128 256 512 1024 2048 4096 8192 16384; do
         echo "B1=$B1 B2=$B2"
         srun -n 32 ./progB 10 1000000 $B1 $B2
     done
 done
 
 echo "=== Q1: B1/B2 grid search for progC ==="
-for B1 in 256 512 1024 2048 4096 8192 16384; do
-    for B2 in 256 512 1024 2048 4096 8192 16384; do
+for B1 in 64 128 256 512 1024 2048 4096 8192 16384; do
+    for B2 in 64 128 256 512 1024 2048 4096 8192 16384; do
         echo "B1=$B1 B2=$B2"
         srun -n 32 ./progC 10 1000000 $B1 $B2
     done
 done
 
-B1=10
-B2=100
+B1=2048
+B2=2048
 
 # Q2: vary number of processes, size=1M, 10 iterations
 echo "=== Q2: varying number of processes ==="

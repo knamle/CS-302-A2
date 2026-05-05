@@ -43,15 +43,16 @@ static void compute_tile(const int *local_matA, const int *B_tile,
 
     for (int idx = 0; idx < chunk / 2; idx++)
     {
-        for (int jdx = 0; jdx < half_tile; jdx++)
+        for (int kdx = 0; kdx < N; kdx++)
         {
-            int c_col = col_start / 2 + jdx;
-            for (int aoff = 0; aoff < 2; aoff++)
-                for (int boff = 0; boff < 2; boff++)
-                    for (int kdx = 0; kdx < N; kdx++)
-                        local_matC[idx * half_K + c_col] +=
-                            local_matA[(idx * 2 + aoff) * N + kdx] *
-                            B_tile[kdx * tile_w + (jdx * 2 + boff)];
+            int a0 = local_matA[(idx * 2) * N + kdx];
+            int a1 = local_matA[(idx * 2 + 1) * N + kdx];
+            for (int jdx = 0; jdx < half_tile; jdx++)
+            {
+                int b0 = B_tile[kdx * tile_w + jdx * 2];
+                int b1 = B_tile[kdx * tile_w + jdx * 2 + 1];
+                local_matC[idx * half_K + col_start / 2 + jdx] += a0 * b0 + a0 * b1 + a1 * b0 + a1 * b1;
+            }
         }
     }
 }
